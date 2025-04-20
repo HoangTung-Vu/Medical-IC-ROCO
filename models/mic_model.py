@@ -42,12 +42,12 @@ class CvT_PubMedBERT(BaseMD):
     CvT_PubMedBERT model class.
     Combines a CvT encoder with a PubMedBERT decoder for image captioning tasks.
     """
-    def __init__(self, hidden_size : int = 768, num_layers : int = 2, num_heads : int = 4, drop_out : float = 0.2):
+    def __init__(self, hidden_size : int = 512, num_layers : int = 2, num_heads : int = 4, drop_out : float = 0.2):
         super(CvT_PubMedBERT, self).__init__()
         projection = nn.Linear(384, hidden_size)
         self.encoder = EncoderWrapper(projection)
         self.decoder = Decoder(hidden_size=hidden_size, num_layers=num_layers, num_heads=num_heads, drop_out=drop_out)
-        self.vocab_size = self.decoder.bert_embed.config.vocab_size
+        self.vocab_size = self.decoder.vocab_size
 
     def forward(self,
                 input_image : torch.Tensor,

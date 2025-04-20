@@ -1,13 +1,3 @@
-
-""" THIS IS NOT USED IN THE PROJECT
-    This class is defined for Decoder from scratch. (from scratch vocab).
-    This class provides common inference methods like greedy search and beam search.
-    Subclasses are expected to implement:
-    - self.encoder: A module that takes the input (e.g., image) and returns encoded features.
-    - self.decoder: A module that takes the target sequence and encoder output and returns logits.
-    - Necessary vocabulary information (e.g., SOS, EOS indices) should be handled by the vocabulary object
-      passed to the inference methods. """
-
 import torch
 import torch.nn as nn
 import math

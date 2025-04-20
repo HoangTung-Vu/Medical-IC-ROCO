@@ -7,10 +7,11 @@ class Decoder(nn.Module):
     def __init__(self, hidden_size : int = 512, num_layers : int = 2, num_heads : int = 4, drop_out : float = 0.2):
         super(Decoder, self).__init__()
         self.hidden_size = hidden_size
-
-        self.bert_embed = AutoModel.from_pretrained("microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext")
-        self.bert_proj = nn.Linear(self.bert_embed.config.hidden_size, hidden_size)  # Project BERT output to match hidden_size
-
+        bert = AutoModel.from_pretrained("microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext")
+        self.bert_embed = bert.embeddings
+        self.bert_proj = nn.Linear(bert.config.hidden_size, hidden_size)  # Project BERT output to match hidden_size
+        self.vocab_size = bert.config.vocab_size
+        
         for params in self.bert_embed.parameters():
             params.requires_grad = False
 
@@ -23,7 +24,7 @@ class Decoder(nn.Module):
         ])  
 
         self.norm_out = nn.LayerNorm(hidden_size)
-        self.fc_out = nn.Linear(hidden_size, self.bert_embed.config.vocab_size)    
+        self.fc_out = nn.Linear(hidden_size, bert.config.vocab_size)    
 
     def forward(
             self, 

@@ -10,7 +10,7 @@ from models.mic_model import CvT_PubMedBERT
 from utils.dataloader import get_dataloader
 from utils.trainer import Trainer
 
-model = CvT_PubMedBERT()
+model = CvT_PubMedBERT(num_layers=4, num_heads=8, hidden_size=768, drop_out=0.2)
 
 trainer = Trainer(
     model = model,
