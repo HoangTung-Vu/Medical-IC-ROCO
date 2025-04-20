@@ -18,6 +18,18 @@ trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print(f"Total parameters: {total_params:,}")
 print(f"Trainable parameters: {trainable_params:,}")
 
+decoder_params = sum(p.numel() for p in model.decoder.parameters())
+trainable_decoder_params = sum(p.numel() for p in model.decoder.parameters() if p.requires_grad)
+
+print(f"Total decoder parameters: {decoder_params:,}")
+print(f"Trainable decoder parameters: {trainable_decoder_params:,}")
+
+encoder_params = sum(p.numel() for p in model.encoder.parameters())
+trainable_encoder_params = sum(p.numel() for p in model.encoder.parameters() if p.requires_grad)
+
+print(f"Total encoder parameters: {encoder_params:,}")
+print(f"Trainable encoder parameters: {trainable_encoder_params:,}")
+
 trainer = Trainer(
     model = model,
     num_epochs = 30,
