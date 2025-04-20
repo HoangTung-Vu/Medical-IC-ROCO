@@ -12,6 +12,12 @@ from utils.trainer import Trainer
 
 model = CvT_PubMedBERT(num_layers=2, num_heads=8, hidden_size=512, drop_out=0.2)
 
+total_params = sum(p.numel() for p in model.parameters())
+trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+print(f"Total parameters: {total_params:,}")
+print(f"Trainable parameters: {trainable_params:,}")
+
 trainer = Trainer(
     model = model,
     num_epochs = 30,
