@@ -8,7 +8,7 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.hidden_size = hidden_size
         bert = AutoModel.from_pretrained("microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext")
-        self.bert_embed = bert.embeddings
+        self.bert_embed = bert
         self.bert_proj = nn.Linear(bert.config.hidden_size, hidden_size)  # Project BERT output to match hidden_size
         self.vocab_size = bert.config.vocab_size
         

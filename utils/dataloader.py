@@ -128,7 +128,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     trainloader, validloader, testloader = get_dataloader(
-        root_dir='/home/hoangtungvum/CODE/MIC/data/mdwiratathya___roco-radiology/default/0.0.0/03471f547bb646a1f447add638d46bb3507523e8',
+        root_dir='../data/03471f547bb646a1f447add638d46bb3507523e8',
         batch_size=16
     )["data"]
 

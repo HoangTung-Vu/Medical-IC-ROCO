@@ -10,12 +10,12 @@ from models.mic_model import CvT_PubMedBERT
 from utils.dataloader import get_dataloader
 from utils.trainer import Trainer
 
-model = CvT_PubMedBERT(num_layers=4, num_heads=8, hidden_size=768, drop_out=0.2)
+model = CvT_PubMedBERT(num_layers=2, num_heads=8, hidden_size=512, drop_out=0.2)
 
 trainer = Trainer(
     model = model,
     num_epochs = 30,
-    dataroot = "data/mdwiratathya___roco-radiology/default/0.0.0/03471f547bb646a1f447add638d46bb3507523e8",
+    dataroot = "/home/hoangtungvum/CODE/MIC/data/03471f547bb646a1f447add638d46bb3507523e8",
     device = "cuda" if torch.cuda.is_available() else "cpu",
     batch_size = 8
 )
