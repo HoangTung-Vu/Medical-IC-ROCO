@@ -1,4 +1,7 @@
 import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+
 import json
 import torch
 import torch.nn as nn
@@ -12,6 +15,7 @@ from nltk.translate.meteor_score import meteor_score
 from rouge import Rouge
 from transformers import AutoModel, AutoTokenizer
 from sklearn.metrics.pairwise import cosine_similarity
+from PIL import Image
 
 from utils.dataloader import get_dataloader
 import torchvision.transforms as transforms
@@ -42,7 +46,12 @@ class Evaluator:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self.device = device
-            
+
+        self.bert_model = AutoModel.from_pretrained("microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext")
+        self.bert_tokenizer = AutoTokenizer.from_pretrained("microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext")
+        self.bert_model.to(self.device)
+        self.bert_model.eval()
+
         self.transform = transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
@@ -62,12 +71,7 @@ class Evaluator:
         
         _, self.valid_loader, self.test_loader = ds["data"]
         self.tokenizer = ds["tokenizer"]
-        
-        # Initialize BERT model for semantic similarity
-        self.bert_model = AutoModel.from_pretrained("microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext")
-        self.bert_tokenizer = AutoTokenizer.from_pretrained("microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext")
-        self.bert_model.to(self.device)
-        self.bert_model.eval()
+
         
         # Ensure results directory exists
         os.makedirs(results_dir, exist_ok=True)
@@ -165,7 +169,7 @@ class Evaluator:
         
         return img
     
-    def evaluate(self, dataloader: DataLoader, dataset_name: str = "test") -> Dict[str, Any]:
+    def evaluate(self, dataloader: DataLoader, dataset_name: str = "test", save_predictions: bool = True,) -> Dict[str, Any]:
         """
         Evaluate the model on a dataset.
         
@@ -176,12 +180,15 @@ class Evaluator:
         Returns:
             Dict[str, Any]: Evaluation metrics.
         """
+        predictions_file = os.path.join(self.results_dir, f"{dataset_name}_captions.json")
+        if os.path.exists(predictions_file):
+            with open(predictions_file, "r") as f:
+                predictions_data = json.load(f)
+            print(f"Loaded existing predictions from {predictions_file}")
+        else:
+            predictions_data = []
+
         self.model.eval()
-        
-        all_references = []
-        all_references_tokenized = []
-        all_hypotheses = []
-        all_hypotheses_tokenized = []
         
         pubmedbert_scores = []
         
@@ -189,10 +196,14 @@ class Evaluator:
         
         with torch.no_grad():
             for batch_idx, batch in enumerate(progress_bar):
+                # Limit the number of batches for testing
+                if batch_idx == 2:
+                    break
                 images, captions = self._prepare_batch(batch)
                 
                 for i in range(images.size(0)):
                     image = images[i].unsqueeze(0)
+                    idx = batch_idx * self.batch_size + i    
                     
                     if self.use_beam_search:
                         generated_caption, _ = self.model.caption_image_beam_search(
@@ -212,10 +223,6 @@ class Evaluator:
                     reference_tokenized = reference_caption.lower().split()
                     hypothesis_tokenized = generated_caption.lower().split()
                     
-                    all_references.append([reference_caption])  # Wrapped in list for multi-reference format
-                    all_references_tokenized.append([[reference_tokenized]])
-                    all_hypotheses.append(generated_caption)
-                    all_hypotheses_tokenized.append(hypothesis_tokenized)
                     
                     # Calculate PubMedBERT score
                     pubmedbert_score = self._compute_pubmedbert_score(
@@ -223,7 +230,24 @@ class Evaluator:
                         references=[reference_caption]
                     )
                     pubmedbert_scores.append(pubmedbert_score)
-        
+                    predictions_data.append({
+                        "image_id": idx,
+                        "reference": reference_caption,
+                        "hypothesis": generated_caption,
+                        "reference_tokenized" : reference_tokenized,    
+                        "hypothesis_tokenized": hypothesis_tokenized,
+                        "pubmedbert_score": str(pubmedbert_score)
+                    })
+
+            if save_predictions:
+                with open(predictions_file, "w") as f:
+                    json.dump(predictions_data, f, indent=6)
+                
+        all_references = [ [entry["reference"]] for entry in predictions_data ]
+        all_references_tokenized = [ [entry["reference_tokenized"]] for entry in predictions_data ]
+        all_hypotheses = [ entry["hypothesis"] for entry in predictions_data ]
+        all_hypotheses_tokenized = [ entry["hypothesis_tokenized"] for entry in predictions_data ]
+
         # Calculate BLEU scores
         bleu_scores = self._compute_bleu_score(
             hypothesis=all_hypotheses_tokenized,
@@ -270,64 +294,50 @@ class Evaluator:
         return results
     
     def visualize_samples(self, dataloader: DataLoader, num_samples: int = 10) -> None:
-        """
-        Visualize sample predictions from the model.
-        
-        Args:
-            dataloader (DataLoader): Data loader for samples.
-            num_samples (int): Number of samples to visualize.
-        """
+        vis_dir = os.path.join(self.results_dir, 'visualize')
+        os.makedirs(vis_dir, exist_ok=True)
+        records = []  # to store mapping for json
+
         self.model.eval()
-        samples_seen = 0
-        
-        plt.figure(figsize=(15, 15))
-        
+        seen = 0
         with torch.no_grad():
-            for batch in dataloader:
+            for batch_id, batch in enumerate(dataloader):
                 images, captions = self._prepare_batch(batch)
-                
                 for i in range(images.size(0)):
-                    if samples_seen >= num_samples:
+                    if seen >= num_samples:
                         break
-                        
-                    image = images[i].unsqueeze(0)
-                    
-                    # Generate caption
+                    img_tensor = images[i]
+                    img = img_tensor.unsqueeze(0)
                     if self.use_beam_search:
-                        generated_caption, _ = self.model.caption_image_beam_search(
-                            image=image, 
-                            beam_size=self.beam_size
-                        )
+                        hyp, _ = self.model.caption_image_beam_search(img, beam_size=self.beam_size)
                     else:
-                        generated_caption, _ = self.model.caption_image_greedy(image=image)
+                        hyp, _ = self.model.caption_image_greedy(img)
+                    toks = captions[i].tolist()
+                    pad_id = self.tokenizer.get_pad_token_id()
+                    valid = [t for t in toks if t != pad_id]
+                    ref = self.tokenizer.decode(valid, skip_special_tokens=True)
+
+                    unnorm = img_tensor.cpu() * torch.tensor([0.229,0.224,0.225]).view(3,1,1) + torch.tensor([0.485,0.456,0.406]).view(3,1,1)
+                    arr = (unnorm.clamp(0,1).permute(1,2,0).numpy() * 255).astype(np.uint8)
                     
-                    # Get reference caption
-                    token_ids = captions[i].tolist()
-                    pad_token_id = self.tokenizer.get_pad_token_id()
-                    valid_token_ids = [tid for tid in token_ids if tid != pad_token_id]
-                    reference_caption = self.tokenizer.decode(valid_token_ids, skip_special_tokens=True)
-                    
-                    # Display image and captions
-                    img_display = self._unnormalize_image(images[i].cpu())
-                    
-                    plt.subplot(5, 2, samples_seen + 1)
-                    plt.imshow(img_display.permute(1, 2, 0).numpy())
-                    plt.title(f"Sample {samples_seen + 1}", fontsize=12)
-                    plt.axis("off")
-                    
-                    print(f"\nSample {samples_seen + 1}:")
-                    print(f"Reference: {reference_caption}")
-                    print(f"Generated: {generated_caption}")
-                    print("-" * 80)
-                    
-                    samples_seen += 1
-                    
-                if samples_seen >= num_samples:
+                    im = Image.fromarray(arr)
+                    fname = f"sample_{seen:03d}_id_{batch_id}.png"
+                    im.save(os.path.join(vis_dir, fname))
+
+                    records.append({
+                        "image_file": fname,
+                        "image_id": f"{batch_id}-{i}",
+                        "reference": ref,
+                        "hypothesis": hyp
+                    })
+                    seen += 1
+                if seen >= num_samples:
                     break
-        
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.results_dir, "sample_predictions.png"))
-        plt.show()
+
+        # save JSON mapping
+        with open(os.path.join(vis_dir, 'visualize_captions.json'), 'w') as f:
+            json.dump(records, f, indent=2)
+        print(f"Saved {seen} visualizations under {vis_dir}")
     
     def run_evaluation(self, checkpoint_path: Optional[str] = None) -> Dict[str, Any]:
         """
