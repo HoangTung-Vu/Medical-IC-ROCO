@@ -8,12 +8,9 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.hidden_size = hidden_size
         bert = AutoModel.from_pretrained("microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext")
-        self.bert_embed = bert
+        self.bert_embed = bert.embeddings.word_embeddings
         self.bert_proj = nn.Linear(bert.config.hidden_size, hidden_size)  # Project BERT output to match hidden_size
         self.vocab_size = bert.config.vocab_size
-        
-        for params in self.bert_embed.parameters():
-            params.requires_grad = False
 
         self.pos_emb = SinusoidalPosEmb(hidden_size)    
         self.dropout = nn.Dropout(drop_out)
@@ -24,7 +21,9 @@ class Decoder(nn.Module):
         ])  
 
         self.norm_out = nn.LayerNorm(hidden_size)
-        self.fc_out = nn.Linear(hidden_size, bert.config.vocab_size)    
+        
+        for params in self.bert_embed.parameters() :
+            params.requires_grad = False
 
     def forward(
             self, 
@@ -47,13 +46,13 @@ class Decoder(nn.Module):
         # print(f"seqlen : {seq_len}")
         device = target_seq.device
 
-        if target_padding_mask is not None:
-            attention_mask = ~target_padding_mask
-        else:
-            attention_mask = None
+        # if target_padding_mask is not None:
+        #     attention_mask = ~target_padding_mask
+        # else:
+        #     attention_mask = None
     
-        target_emb = self.bert_embed(target_seq, attention_mask = attention_mask)
-        target_emb = self.bert_proj(target_emb.last_hidden_state)
+        target_emb = self.bert_embed(target_seq)
+        target_emb = self.bert_proj(target_emb)
         pos_encoding = self.pos_emb(seq_len, device=device)
 
         x = self.dropout(target_emb + pos_encoding) 
@@ -67,5 +66,6 @@ class Decoder(nn.Module):
             )
             cross_attn_weights_layers.append(cross_attn_weights)
         x = self.norm_out(x)
-        logits = self.fc_out(x)
+        x = torch.matmul(x, self.bert_proj.weight)           # (B, T, 768)
+        logits = torch.matmul(x, self.bert_embed.weight.T) 
         return logits, cross_attn_weights_layers

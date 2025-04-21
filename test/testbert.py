@@ -28,3 +28,7 @@ trainable_params = sum(p.numel() for p in embedding.parameters() if p.requires_g
 
 print(f"Total parameters: {total_params:,}")
 print(f"Trainable parameters: {trainable_params:,}")
+
+
+print("Embedding weights:", embedding.weight)
+print("Embedding weights shape:", embedding.weight.shape)
