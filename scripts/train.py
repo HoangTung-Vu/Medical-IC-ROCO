@@ -10,7 +10,7 @@ from models.mic_model import CvT_PubMedBERT
 from utils.dataloader import get_dataloader
 from utils.trainer import Trainer
 
-model = CvT_PubMedBERT(num_layers=2, num_heads=8, hidden_size=512, drop_out=0.2)
+model = CvT_PubMedBERT(num_layers=4, num_heads=8, hidden_size=768, drop_out=0.2)
 
 total_params = sum(p.numel() for p in model.parameters())
 trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -33,9 +33,9 @@ print(f"Trainable encoder parameters: {trainable_encoder_params:,}")
 trainer = Trainer(
     model = model,
     num_epochs = 30,
-    dataroot = "/home/hoangtungvum/CODE/MIC/data/03471f547bb646a1f447add638d46bb3507523e8",
+    dataroot = "data/03471f547bb646a1f447add638d46bb3507523e8",
     device = "cuda" if torch.cuda.is_available() else "cpu",
-    batch_size = 8
+    batch_size = 16
 )
 
 trainer.train()

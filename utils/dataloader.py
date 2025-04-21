@@ -6,7 +6,7 @@ from transformers import AutoTokenizer
 from datasets import Dataset, concatenate_datasets
 from torchvision import transforms
 class Tokenizer:
-    def __init__(self, max_length: int = 256):
+    def __init__(self, max_length: int = 512):
         self.max_length = max_length
         self.tokenizer = AutoTokenizer.from_pretrained(
             "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext"

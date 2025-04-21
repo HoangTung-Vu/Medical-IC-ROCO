@@ -308,8 +308,8 @@ class Trainer:
             if is_best:
                 self.save_checkpoint(epoch, val_loss, best_val_loss, is_best=True)
                 
-            if epoch % 2 == 0:
-                self.generate_sample_caption()
+
+            self.generate_sample_caption()
                 
             if patience_counter >= self.early_stopping:
                 print(f"Early stopping triggered after {epoch} epochs")

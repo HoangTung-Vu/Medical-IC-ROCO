@@ -9,7 +9,10 @@ class Decoder(nn.Module):
         self.hidden_size = hidden_size
         bert = AutoModel.from_pretrained("microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext")
         self.bert_embed = bert.embeddings.word_embeddings
-        self.bert_proj = nn.Linear(bert.config.hidden_size, hidden_size)  # Project BERT output to match hidden_size
+        if bert.config.hidden_size == hidden_size : 
+            self.bert_proj = None
+        else :
+            self.bert_proj = nn.Linear(bert.config.hidden_size, hidden_size)  # Project BERT output to match hidden_size
         self.vocab_size = bert.config.vocab_size
 
         self.pos_emb = SinusoidalPosEmb(hidden_size)    
@@ -52,7 +55,8 @@ class Decoder(nn.Module):
         #     attention_mask = None
     
         target_emb = self.bert_embed(target_seq)
-        target_emb = self.bert_proj(target_emb)
+        if self.bert_proj is not None : 
+            target_emb = self.bert_proj(target_emb)
         pos_encoding = self.pos_emb(seq_len, device=device)
 
         x = self.dropout(target_emb + pos_encoding) 
@@ -66,6 +70,7 @@ class Decoder(nn.Module):
             )
             cross_attn_weights_layers.append(cross_attn_weights)
         x = self.norm_out(x)
-        x = torch.matmul(x, self.bert_proj.weight)           # (B, T, 768)
+        if self.bert_proj is not None :
+            x = torch.matmul(x, self.bert_proj.weight)           # (B, T, 768)
         logits = torch.matmul(x, self.bert_embed.weight.T) 
         return logits, cross_attn_weights_layers
