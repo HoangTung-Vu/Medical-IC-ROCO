@@ -95,19 +95,20 @@ class Trainer:
         if self.scheduler:
              print(f"  Scheduler: {self.scheduler.__class__.__name__}")
         
-    def save_checkpoint(self, epoch : int, val_loss : float, best_val_loss : float, is_best : bool):
-        if self.model is None or self.optimizer is None or self.dataroot is None:
-            raise ValueError("Model, optimizer, or dataset not initialized.")
-        
+    def save_checkpoint(self, epoch: int, val_loss: float, best_val_loss: float, filename: str):
+        """Saves the model checkpoint to a specified file."""
+        if self.model is None or self.optimizer is None:
+            raise ValueError("Model or optimizer not initialized.")
+
         os.makedirs(self.checkpoint_path, exist_ok=True)
 
         checkpoint_data = {
             'epoch': epoch,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
-            'val_loss': val_loss,
-            'best_val_loss': best_val_loss,
-            'model' : self.model.__class__.__name__
+            'val_loss': val_loss, # Current validation loss
+            'best_val_loss': best_val_loss, # Best validation loss seen so far
+            'model_class': self.model.__class__.__name__ # Store model class name
         }
 
         if self.scheduler is not None:
@@ -115,13 +116,8 @@ class Trainer:
         if self.scaler is not None:
             checkpoint_data['scaler_state_dict'] = self.scaler.state_dict()
 
-        latest_checkpoint_path = os.path.join(self.checkpoint_path, f"checkpoint_epoch_{epoch}.pth")
-        torch.save(checkpoint_data, latest_checkpoint_path)
-
-        if is_best:
-            best_checkpoint_path = os.path.join(self.checkpoint_path, "best_model.pth")
-            torch.save(checkpoint_data, best_checkpoint_path)
-            print(f"Best model saved at epoch {epoch} with validation loss: {val_loss:.4f}")
+        full_path = os.path.join(self.checkpoint_path, filename)
+        torch.save(checkpoint_data, full_path)
 
     def load_checkpoint(self, checkpoint_path: str) -> int:
         if not os.path.exists(checkpoint_path):
@@ -297,17 +293,14 @@ class Trainer:
                 
             is_best = val_loss < best_val_loss
             if is_best:
+                self.save_checkpoint(epoch, val_loss, best_val_loss, filename="best_model.pth")
                 best_val_loss = val_loss
                 patience_counter = 0
             else:
                 patience_counter += 1
                 
             if epoch % self.save_freq == 0:
-                self.save_checkpoint(epoch, val_loss, best_val_loss, is_best=False)
-
-            if is_best:
-                self.save_checkpoint(epoch, val_loss, best_val_loss, is_best=True)
-                
+                self.save_checkpoint(epoch, val_loss, best_val_loss, filename = f"checkpoint_epoch_{epoch}.pth")
 
             self.generate_sample_caption()
                 
