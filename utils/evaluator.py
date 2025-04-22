@@ -21,6 +21,13 @@ from utils.dataloader import get_dataloader
 from utils.explainer import *
 import torchvision.transforms as transforms
 
+from nltk.corpus import stopwords
+import string
+
+stop_words = set(stopwords.words('english'))
+special_symbols = {":", "-", "_"}
+
+
 class Evaluator:
     def __init__(
         self,
@@ -354,6 +361,8 @@ class Evaluator:
                     img_folder = os.path.join(base_dir, image_id)
 
                     for idx, (word, hm) in enumerate(zip(words, heatmaps)):
+                        if word.lower() in stop_words or any(char in special_symbols for char in word):
+                            continue
                         out_path = os.path.join(img_folder, f"{idx:02d}_{word}.png")
                         overlay = overlay_heatmap(image_tensor, hm, alpha = 0.2)
                         save_image(overlay, out_path)
