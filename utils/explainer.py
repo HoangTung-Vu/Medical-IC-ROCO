@@ -32,6 +32,9 @@ def reconstruct_heatmap(conv_layers, rf_map):
         
     return x
 
+def reconstruct_heatmap_grid(rf_map, target_size = (224,224)):
+        return rf_map
+
 
 def explain_inference_image(img_tensor: torch.Tensor, model, device='cuda'):
     """
@@ -40,7 +43,7 @@ def explain_inference_image(img_tensor: torch.Tensor, model, device='cuda'):
     Args:
         img_tensor (torch.Tensor): [1, 3, H, W] input image tensor
         model: Trained captioning model (BaseMD subclass)
-        device (str): 'cuda' or 'cpu'
+        device (str): 'cuda' or 'cpu's
 
     Returns:
         List[str]: caption words
@@ -85,10 +88,11 @@ def overlay_heatmap(image_tensor: torch.Tensor, heatmap: np.ndarray, alpha: floa
     """
     unnorm = image_tensor.cpu() * torch.tensor([0.229,0.224,0.225]).view(3,1,1) + torch.tensor([0.485,0.456,0.406]).view(3,1,1)
     img_arr = (unnorm.clamp(0,1).permute(1,2,0).numpy() * 255).astype(np.uint8)
+    H, W = img_arr.shape[:2]
 
     fig, ax = plt.subplots()
     ax.imshow(img_arr)
-    ax.imshow(heatmap, alpha=alpha)
+    ax.imshow(heatmap, alpha=alpha, extent=(0, W, H, 0))
     ax.axis('off')  # remove axes
     fig.tight_layout(pad=0)
 
