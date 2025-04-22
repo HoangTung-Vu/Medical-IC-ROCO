@@ -30,7 +30,8 @@ evaluator = Evaluator(
     dataroot="data/03471f547bb646a1f447add638d46bb3507523e8",
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
     batch_size=16,
-    use_beam_search=False
+    use_beam_search=False,
+    results_dir="results"
 )
 
 print(f"Running evaluation with {'beam search' if evaluator.use_beam_search else 'greedy search'}")

@@ -1,7 +1,6 @@
 import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-
 import json
 import torch
 import torch.nn as nn
@@ -17,7 +16,9 @@ from transformers import AutoModel, AutoTokenizer
 from sklearn.metrics.pairwise import cosine_similarity
 from PIL import Image
 
+
 from utils.dataloader import get_dataloader
+from utils.explainer import *
 import torchvision.transforms as transforms
 
 class Evaluator:
@@ -158,17 +159,6 @@ class Evaluator:
         
         return images, captions
     
-    def _unnormalize_image(self, img_tensor: torch.Tensor) -> torch.Tensor:
-        """Unnormalize an image tensor for display."""
-        mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1).to(img_tensor.device)
-        std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1).to(img_tensor.device)
-        
-        img = img_tensor.clone()
-        img = img * std + mean
-        img = torch.clamp(img, 0, 1)
-        
-        return img
-    
     def evaluate(self, dataloader: DataLoader, dataset_name: str = "test", save_predictions: bool = True,) -> Dict[str, Any]:
         """
         Evaluate the model on a dataset.
@@ -188,65 +178,63 @@ class Evaluator:
         else:
             predictions_data = []
 
-        self.model.eval()
-        
-        pubmedbert_scores = []
-        
-        progress_bar = tqdm(dataloader, desc=f"Evaluating on {dataset_name}")
-        
-        with torch.no_grad():
-            for batch_idx, batch in enumerate(progress_bar):
-                # Limit the number of batches for testing
-                if batch_idx == 2:
-                    break
-                images, captions = self._prepare_batch(batch)
-                
-                for i in range(images.size(0)):
-                    image = images[i].unsqueeze(0)
-                    idx = batch_idx * self.batch_size + i    
+            self.model.eval()
+            
+            progress_bar = tqdm(dataloader, desc=f"Evaluating on {dataset_name}")
+            
+            with torch.no_grad():
+                for batch_idx, batch in enumerate(progress_bar):
+                    # Limit the number of batches for testing
+                    # if batch_idx == 3:
+                    #     break
+                    images, captions = self._prepare_batch(batch)
                     
-                    if self.use_beam_search:
-                        generated_caption, _ = self.model.caption_image_beam_search(
-                            image=image, 
-                            beam_size=self.beam_size
+                    for i in range(images.size(0)):
+                        image = images[i].unsqueeze(0)
+                        idx = batch_idx * self.batch_size + i    
+                        
+                        if self.use_beam_search:
+                            generated_caption, _ = self.model.caption_image_beam_search(
+                                image=image, 
+                                beam_size=self.beam_size
+                            )
+                        else:
+                            generated_caption, _ = self.model.caption_image_greedy(image=image)
+                        
+                        # Process reference caption
+                        token_ids = captions[i].tolist()
+                        pad_token_id = self.tokenizer.get_pad_token_id()
+                        valid_token_ids = [tid for tid in token_ids if tid != pad_token_id]
+                        reference_caption = self.tokenizer.decode(valid_token_ids, skip_special_tokens=True)
+                        
+                        # For BLEU score
+                        reference_tokenized = reference_caption.lower().split()
+                        hypothesis_tokenized = generated_caption.lower().split()
+                        
+                        
+                        # Calculate PubMedBERT score
+                        pubmedbert_score = self._compute_pubmedbert_score(
+                            hypothesis=generated_caption,
+                            references=[reference_caption]
                         )
-                    else:
-                        generated_caption, _ = self.model.caption_image_greedy(image=image)
-                    
-                    # Process reference caption
-                    token_ids = captions[i].tolist()
-                    pad_token_id = self.tokenizer.get_pad_token_id()
-                    valid_token_ids = [tid for tid in token_ids if tid != pad_token_id]
-                    reference_caption = self.tokenizer.decode(valid_token_ids, skip_special_tokens=True)
-                    
-                    # For BLEU score
-                    reference_tokenized = reference_caption.lower().split()
-                    hypothesis_tokenized = generated_caption.lower().split()
-                    
-                    
-                    # Calculate PubMedBERT score
-                    pubmedbert_score = self._compute_pubmedbert_score(
-                        hypothesis=generated_caption,
-                        references=[reference_caption]
-                    )
-                    pubmedbert_scores.append(pubmedbert_score)
-                    predictions_data.append({
-                        "image_id": idx,
-                        "reference": reference_caption,
-                        "hypothesis": generated_caption,
-                        "reference_tokenized" : reference_tokenized,    
-                        "hypothesis_tokenized": hypothesis_tokenized,
-                        "pubmedbert_score": str(pubmedbert_score)
-                    })
+                        predictions_data.append({
+                            "image_id": idx,
+                            "reference": reference_caption,
+                            "hypothesis": generated_caption,
+                            "reference_tokenized" : reference_tokenized,    
+                            "hypothesis_tokenized": hypothesis_tokenized,
+                            "pubmedbert_score": str(pubmedbert_score)
+                        })
 
-            if save_predictions:
-                with open(predictions_file, "w") as f:
-                    json.dump(predictions_data, f, indent=6)
+                if save_predictions:
+                    with open(predictions_file, "w") as f:
+                        json.dump(predictions_data, f, indent=6)
                 
         all_references = [ [entry["reference"]] for entry in predictions_data ]
         all_references_tokenized = [ [entry["reference_tokenized"]] for entry in predictions_data ]
         all_hypotheses = [ entry["hypothesis"] for entry in predictions_data ]
         all_hypotheses_tokenized = [ entry["hypothesis_tokenized"] for entry in predictions_data ]
+        pubmedbert_scores = [ float(entry["pubmedbert_score"]) for entry in predictions_data ]
 
         # Calculate BLEU scores
         bleu_scores = self._compute_bleu_score(
@@ -306,8 +294,8 @@ class Evaluator:
                 for i in range(images.size(0)):
                     if seen >= num_samples:
                         break
-                    img_tensor = images[i]
-                    img = img_tensor.unsqueeze(0)
+                    image_tensor = images[i]
+                    img = image_tensor.unsqueeze(0)
                     if self.use_beam_search:
                         hyp, _ = self.model.caption_image_beam_search(img, beam_size=self.beam_size)
                     else:
@@ -317,12 +305,12 @@ class Evaluator:
                     valid = [t for t in toks if t != pad_id]
                     ref = self.tokenizer.decode(valid, skip_special_tokens=True)
 
-                    unnorm = img_tensor.cpu() * torch.tensor([0.229,0.224,0.225]).view(3,1,1) + torch.tensor([0.485,0.456,0.406]).view(3,1,1)
-                    arr = (unnorm.clamp(0,1).permute(1,2,0).numpy() * 255).astype(np.uint8)
+                    unnorm = image_tensor.cpu() * torch.tensor([0.229,0.224,0.225]).view(3,1,1) + torch.tensor([0.485,0.456,0.406]).view(3,1,1)
+                    img_arr = (unnorm.clamp(0,1).permute(1,2,0).numpy() * 255).astype(np.uint8)
                     
-                    im = Image.fromarray(arr)
+                    image = Image.fromarray(img_arr)
                     fname = f"sample_{seen:03d}_id_{batch_id}.png"
-                    im.save(os.path.join(vis_dir, fname))
+                    image.save(os.path.join(vis_dir, fname))
 
                     records.append({
                         "image_file": fname,
@@ -339,6 +327,39 @@ class Evaluator:
             json.dump(records, f, indent=2)
         print(f"Saved {seen} visualizations under {vis_dir}")
     
+    def visualize_attention(self, dataloader: DataLoader, num_samples: int = 10) -> None:
+        """
+        Generate and save per-word attention visualizations for a few samples.
+
+        Saves each word-level overlay into:
+            results/visualize_attention/<image_id>/<word_index>_<word>.png
+        """
+        base_dir = os.path.join(self.results_dir, 'visualize_attention')
+        os.makedirs(base_dir, exist_ok=True)
+        seen = 0
+        self.model.eval()
+
+        with torch.no_grad():
+            for batch_idx, batch in enumerate(dataloader):
+                images, _ = self._prepare_batch(batch)
+                for i in range(images.size(0)):
+                    if seen >= num_samples:
+                        return
+                    
+                    image_tensor = images[i]
+                    img = image_tensor.unsqueeze(0)
+                    image_id = f"{batch_idx}-{i}"
+
+                    words, heatmaps = explain_inference_image(img, self.model, device=self.device)
+                    img_folder = os.path.join(base_dir, image_id)
+
+                    for idx, (word, hm) in enumerate(zip(words, heatmaps)):
+                        out_path = os.path.join(img_folder, f"{idx:02d}_{word}.png")
+                        overlay = overlay_heatmap(image_tensor, hm, alpha = 0.2)
+                        save_image(overlay, out_path)
+                    seen += 1
+        print(f"Saved {seen} attention visualizations under {base_dir}")        
+
     def run_evaluation(self, checkpoint_path: Optional[str] = None) -> Dict[str, Any]:
         """
         Run the complete evaluation process.
@@ -357,16 +378,16 @@ class Evaluator:
         
         self.model.to(self.device)
         
-        # Evaluate on validation and test sets
         print("Evaluating model performance...")
         valid_results = self.evaluate(self.valid_loader, "validation")
         test_results = self.evaluate(self.test_loader, "test")
         
-        # Visualize samples
+
         print("\nGenerating sample visualizations...")
         self.visualize_samples(self.test_loader)
-        
-        # Save results
+        print("\nGenerating attention visualizations...")
+        self.visualize_attention(self.test_loader)
+
         results = {
             "validation": valid_results,
             "test": test_results
