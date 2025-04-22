@@ -87,56 +87,36 @@ class Trainer:
 
         self.criterion = nn.CrossEntropyLoss(ignore_index=self.tokenizer.tokenizer.pad_token_id)
 
-        encoder_params = list(self.model.encoder.parameters())
-        decoder_embedding_params = list(self.model.decoder.bert_embed.parameters())
-        decoder_embedding_param_ids = set(id(p) for p in decoder_embedding_params)
-        other_decoder_params = []
-        for name, param in self.model.decoder.named_parameters():
-            if id(param) not in decoder_embedding_param_ids and param.requires_grad:
-                other_decoder_params.append(param)
 
-        optimizer_grouped_parameters = []
-
-        optimizer_grouped_parameters.append({
-            "params": decoder_embedding_params,
-            "lr": self.learning_rate * 0.2
-        })
-        print(f"Decoder embedding parameters ({len(decoder_embedding_params)}) LR: {self.learning_rate * 0.2}")
-
-        optimizer_grouped_parameters.append({
-            "params": other_decoder_params,
-            "lr": self.learning_rate
-        })
-        print(f"Other decoder parameters ({len(other_decoder_params)}) LR: {self.learning_rate}")
-
-
-        if self.finetune_encoder:
-            for p in encoder_params:
-                p.requires_grad = True
-            optimizer_grouped_parameters.append({
-                "params": encoder_params,
-                "lr": self.learning_rate * 0.1
-            })
-            print(f"Encoder parameters ({len(encoder_params)}) are TRAINABLE. LR: {self.learning_rate * 0.1}")
-        else:
-            for p in encoder_params:
+        enc_params = list(self.model.encoder.parameters())
+        dec_params = [p for p in self.model.decoder.parameters() if p.requires_grad] 
+ 
+        if not self.finetune_encoder:
+            for p in enc_params:
                 p.requires_grad = False
-            print(f"Encoder parameters ({len(encoder_params)}) are FROZEN.")
+            self.optimizer = optim.Adam([
+                {"params": dec_params, "lr": self.learning_rate}
+            ], weight_decay=1e-4)
+            print("Encoder parameters are frozen.")
+
+        else:
+            print("Encoder parameters are trainable.")
+            self.optimizer = optim.Adam([
+                {"params": enc_params, "lr": self.learning_rate * 0.1},
+                {"params": dec_params, "lr": self.learning_rate}
+                ], weight_decay=1e-4)
+         
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=0.5, patience=1, verbose=True)
+        self.writer = SummaryWriter(log_dir=os.path.join(self.checkpoint_path, "logs"))
+        
+        print("Model components initialized:")
+        print(f"  Model: {self.model.__class__.__name__}")
+        print(f"  Criterion: {self.criterion.__class__.__name__}")
+        print(f"  Optimizer: {self.optimizer.__class__.__name__}")
+        if self.scheduler:
+            print(f"  Scheduler: {self.scheduler.__class__.__name__}")
 
 
-        self.optimizer = optim.AdamW(optimizer_grouped_parameters, weight_decay=1e-4)
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, mode='min', factor=0.5, patience=1, verbose=True
-        )
-
-        log_dir = os.path.join(self.checkpoint_path, "logs")
-        os.makedirs(log_dir, exist_ok=True)
-        self.writer = SummaryWriter(log_dir=log_dir)
-
-        print("\nInitialization complete.")
-        print(f"Optimizer: {self.optimizer.__class__.__name__}")
-        print(f"Scheduler: {self.scheduler.__class__.__name__ if self.scheduler else 'None'}")
-        print(f"Criterion: {self.criterion.__class__.__name__}")
         
     def save_checkpoint(self, epoch: int, val_loss: float, best_val_loss: float, filename: str):
         """Saves the model checkpoint to a specified file."""

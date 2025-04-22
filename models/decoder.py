@@ -25,8 +25,8 @@ class Decoder(nn.Module):
 
         self.norm_out = nn.LayerNorm(hidden_size)
         
-        # for params in self.bert_embed.parameters() :
-        #     params.requires_grad = False
+        for params in self.bert_embed.parameters() :
+            params.requires_grad = False
 
     def forward(
             self, 
