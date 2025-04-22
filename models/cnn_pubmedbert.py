@@ -16,25 +16,26 @@ class Backbone(nn.Module):
         return self.backbone(x)
 
 backbone = Backbone()
-backbone.load_state_dict(torch.load("ResNet50.pt", weights_only=True))
+backbone.load_state_dict(torch.load("models/ResNet50.pt", weights_only=True))
+print("Loaded ResNet50 backbone weights successfully.")
 
 
 class EncoderWrapper(nn.Module):
     """
-    CvT_PubMedBERT model class.
-    Combines a CvT encoder with a PubMedBERT decoder for image captioning tasks.
+    cnn_PubMedBERT model class.
+    Combines a cnn encoder with a PubMedBERT decoder for image captioning tasks.
     """
     def __init__(self, projection : nn.Module):
         super(EncoderWrapper, self).__init__()
         self.cnn = nn.Sequential(*list(backbone.backbone.children())[:-1]) 
         self.proj = projection
 
-        for p in self.cvt.parameters():
+        for p in self.cnn.parameters():
             p.requires_grad = True
         
     def forward(self, input_image : torch.Tensor) -> torch.Tensor:
         """
-        Forward pass of the CvT_PubMedBERT model.
+        Forward pass of the cnn_PubMedBERT model.
         Args:
             input_image (torch.Tensor): Input image tensor of shape (B, C, H, W).
         Returns:
@@ -50,12 +51,12 @@ class EncoderWrapper(nn.Module):
     
 class CNN_PubMedBERT(BaseMD):
     """
-    CvT_PubMedBERT model class.
-    Combines a CvT encoder with a PubMedBERT decoder for image captioning tasks.
+    cnn_PubMedBERT model class.
+    Combines a cnn encoder with a PubMedBERT decoder for image captioning tasks.
     """
     def __init__(self, hidden_size : int = 512, num_layers : int = 2, num_heads : int = 4, drop_out : float = 0.2):
         super(CNN_PubMedBERT, self).__init__()
-        projection = nn.Linear(384, hidden_size)
+        projection = nn.Linear(2048, hidden_size)
         self.encoder = EncoderWrapper(projection)
         self.decoder = Decoder(hidden_size=hidden_size, num_layers=num_layers, num_heads=num_heads, drop_out=drop_out)
         self.vocab_size = self.decoder.vocab_size
@@ -66,7 +67,7 @@ class CNN_PubMedBERT(BaseMD):
                 padding_mask: Optional[torch.Tensor] = None
     ):
         """
-        Forward pass of the CvT_PubMedBERT model.
+        Forward pass of the cnn_PubMedBERT model.
         Args:
             input_image (torch.Tensor): Input image tensor of shape (B, C, H, W).
             target_seq (torch.Tensor): Target sequence tensor of shape (B, N).

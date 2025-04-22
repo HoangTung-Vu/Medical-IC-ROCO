@@ -22,6 +22,7 @@ class Trainer:
                 learning_rate : float = 1e-3,
                 save_freq : int = 4,
                 checkpoint_path : str = "checkpoints/",
+                finetune_encoder : bool = True,
                 use_mixed_precision : bool = False,
                 early_stopping : int = 3,
                 device : Optional[torch.device] = None 
@@ -32,6 +33,7 @@ class Trainer:
         self.num_workers = num_workers
         self.num_epochs = num_epochs
         self.learning_rate = learning_rate
+        self.finetune_encoder = finetune_encoder
         self.save_freq = save_freq
         self.checkpoint_path = checkpoint_path
         self.use_mixed_precision = use_mixed_precision
@@ -80,10 +82,21 @@ class Trainer:
         
         enc_params = list(self.model.encoder.parameters())
         dec_params = [p for p in self.model.decoder.parameters() if p.requires_grad] 
-        self.optimizer = optim.Adam([
-        {"params": enc_params, "lr": self.learning_rate * 0.1},
-        {"params": dec_params, "lr": self.learning_rate}
-        ], weight_decay=1e-4)
+
+        if not self.finetune_encoder:
+            for p in enc_params:
+                p.requires_grad = False
+            self.optimizer = optim.Adam([
+                {"params": dec_params, "lr": self.learning_rate}
+            ], weight_decay=1e-4)
+            print("Encoder parameters are frozen.")
+        else:
+            print("Encoder parameters are trainable.")
+
+            self.optimizer = optim.Adam([
+            {"params": enc_params, "lr": self.learning_rate * 0.1},
+            {"params": dec_params, "lr": self.learning_rate}
+            ], weight_decay=1e-4)
         
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=0.5, patience=1, verbose=True)
         self.writer = SummaryWriter(log_dir=os.path.join(self.checkpoint_path, "logs"))

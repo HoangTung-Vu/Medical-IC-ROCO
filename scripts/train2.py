@@ -36,7 +36,9 @@ trainer = Trainer(
     num_epochs = 30,
     dataroot = "data/03471f547bb646a1f447add638d46bb3507523e8",
     device = "cuda" if torch.cuda.is_available() else "cpu",
-    batch_size = 16
+    batch_size = 16,
+    checkpoint_path="checkpoints_cnn/",
+    finetune_encoder = False,
 )
 
 trainer.train()
