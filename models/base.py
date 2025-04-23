@@ -23,7 +23,7 @@ class BaseMD(nn.Module):
                              image : torch.Tensor,
                              max_len : int = 500
     ):
-        tokenizer = AutoTokenizer.from_pretrained("microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext")
+        tokenizer = self.tokenizer
         assert image.shape[0] == 1, "Greedy search requires batch size 1"
         self.eval()
 
@@ -79,7 +79,7 @@ class BaseMD(nn.Module):
             str: Best generated caption
             list: Attention weights for the best caption
         """
-        tokenizer = AutoTokenizer.from_pretrained("microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext")
+        tokenizer = self.tokenizer
         device = image.device
         self.eval()
 

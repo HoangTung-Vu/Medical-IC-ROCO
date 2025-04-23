@@ -363,7 +363,7 @@ class Evaluator:
                         if word.lower() in stop_words or word in special_symbols:
                             continue
                         out_path = os.path.join(img_folder, f"{idx:02d}_{word}.png")
-                        overlay = overlay_heatmap(image_tensor, hm, alpha = 0.2)
+                        overlay = overlay_heatmap(image_tensor, hm, alpha = 0.5)
                         save_image(overlay, out_path)
                     seen += 1
         print(f"Saved {seen} attention visualizations under {base_dir}")        

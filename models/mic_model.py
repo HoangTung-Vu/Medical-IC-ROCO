@@ -48,7 +48,8 @@ class CvT_PubMedBERT(BaseMD):
         self.encoder = EncoderWrapper(projection)
         self.decoder = Decoder(hidden_size=hidden_size, num_layers=num_layers, num_heads=num_heads, drop_out=drop_out)
         self.vocab_size = self.decoder.vocab_size
-
+        self.tokenizer = AutoTokenizer.from_pretrained("microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext")
+        
     def forward(self,
                 input_image : torch.Tensor,
                 target_seq : torch.Tensor,

@@ -4,6 +4,7 @@ from torchvision.models import resnet50
 from typing import Tuple, Any, Optional
 from models.base import BaseMD
 from models.decoder import Decoder
+from transformers import AutoTokenizer
 
 class Backbone(nn.Module):
     def __init__(self):
@@ -60,7 +61,7 @@ class CNN_PubMedBERT(BaseMD):
         self.encoder = EncoderWrapper(projection)
         self.decoder = Decoder(hidden_size=hidden_size, num_layers=num_layers, num_heads=num_heads, drop_out=drop_out)
         self.vocab_size = self.decoder.vocab_size
-
+        self.tokenizer = AutoTokenizer.from_pretrained("microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract")
     def forward(self,
                 input_image : torch.Tensor,
                 target_seq : torch.Tensor,

@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 from models.modules import * 
-from transformers import AutoModel, AutoTokenizer
+from transformers import AutoModel, AutoTokenizer, GPT2Config, GPT2LMHeadModel
+from typing import Optional
 
 class Decoder(nn.Module):
     def __init__(self, hidden_size : int = 512, num_layers : int = 2, num_heads : int = 4, drop_out : float = 0.2):
@@ -74,3 +75,32 @@ class Decoder(nn.Module):
             x = torch.matmul(x, self.bert_proj.weight)           # (B, T, 768)
         logits = torch.matmul(x, self.bert_embed.weight.T) 
         return logits, cross_attn_weights_layers
+    
+
+class GPTDecoder(nn.Module):
+    def __init__(self):
+        super(GPTDecoder, self).__init__()
+        gpt2_config = GPT2Config.from_pretrained("gpt2", add_cross_attention=True)
+        self.gpt2 = GPT2LMHeadModel.from_pretrained("gpt2", config=gpt2_config, attn_implementation="eager")
+    
+    def forward(self,
+                target_seq: torch.Tensor,
+                encoder_output: torch.Tensor,
+                target_padding_mask : Optional[torch.Tensor] = None,
+                encoder_padding_mask : Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Forward pass of the decoder.
+        Args:
+            target_seq (torch.Tensor): Target sequence tensor of shape (B, N). 
+            encoder_output (torch.Tensor): Encoder output tensor of shape (B, N, hidden_size).
+            target_padding_mask (Optional[torch.Tensor]): Target padding mask. Shape (B, N).
+            encoder_padding_mask (Optional[torch.Tensor]): Encoder padding mask. Shape (B, N).
+        Returns:
+            torch.Tensor: Output tensor of shape (B, N, vocab_size)."""
+        outputs = self.gpt2(
+            input_ids=target_seq,
+            encoder_hidden_states=encoder_output,
+            attention_mask=target_padding_mask,
+            encoder_attention_mask=encoder_padding_mask
+        )
+        return outputs.logits, outputs.cross_attentions
