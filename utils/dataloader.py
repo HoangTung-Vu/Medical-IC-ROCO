@@ -76,6 +76,7 @@ def get_dataloader(
     num_workers: int = 4, 
     shuffle: bool = True,
     pin_memory: bool = True,
+    tokenizer = Tokenizer(),
     img_cache_size: Optional[int] = 100
 ):
     def get_arrow_files(prefix: str) -> List[str]:
@@ -102,7 +103,7 @@ def get_dataloader(
             transforms.Lambda(lambda x: x.repeat(3, 1, 1) if x.shape[0] == 1 else x)  # chuyển ảnh grayscale -> RGB
         ])
 
-    tokenizer = Tokenizer()
+    tokenizer = tokenizer
     collate_fn = Collate(tokenizer, transform)
 
     # Load datasets

@@ -3,7 +3,7 @@ import torch.nn as nn
 from torchvision.models import resnet50
 from typing import Tuple, Any, Optional
 from models.base import BaseMD
-from models.decoder import Decoder, GPTDecoder
+from models.decoder import Decoder, BioGPTDecoder
 from transformers import AutoTokenizer
 
 class Backbone(nn.Module):
@@ -61,10 +61,10 @@ class CNN_GPT(BaseMD):
             for param in self.encoder.cnn.parameters():
                 param.requires_grad = False
         
-        self.decoder = GPTDecoder()
+        self.decoder = BioGPTDecoder()
         
         # Load the tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained("gpt2")
+        self.tokenizer = AutoTokenizer.from_pretrained("microsoft/biogpt")
     
     def forward(self,
                 input_image : torch.Tensor,
