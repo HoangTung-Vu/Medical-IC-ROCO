@@ -1,0 +1,62 @@
+[
+  {
+    "image_file": "sample_000_id_0.png",
+    "image_id": "0-0",
+    "reference": "axial mri ( coronal view ).",
+    "hypothesis": "coronal t1 - weighted magnetic resonance imaging showing a large mass in the left frontal lobe with a small amount of fluid in the left frontal lobe"
+  },
+  {
+    "image_file": "sample_001_id_0.png",
+    "image_id": "0-1",
+    "reference": "coronal plain computed tomography image showing multiple large tumor masses with edge enhancement inside the abdominal cavity and liver.",
+    "hypothesis": "ct scan of the abdomen showing a large amount of ascites."
+  },
+  {
+    "image_file": "sample_002_id_0.png",
+    "image_id": "0-2",
+    "reference": "axial source image from an intracranial magnetic resonance angiogram reveals abnormal arterial signal elevation in the left more than right cavernous sinuses consistent with a carotid cavernous fistula, as indicated by the arrow.",
+    "hypothesis": "axial t1 - weighted image showing a large mass in the right temporal lobe."
+  },
+  {
+    "image_file": "sample_003_id_0.png",
+    "image_id": "0-3",
+    "reference": "the apical height, homogeneity, and the thickness of mineral trioxide aggregate plug",
+    "hypothesis": "radiograph of the left mandibular second molar"
+  },
+  {
+    "image_file": "sample_004_id_0.png",
+    "image_id": "0-4",
+    "reference": "cto of rca ( closure in the 2nd segment )",
+    "hypothesis": "coronary angiography showing the anomalous origin of the left coronary artery."
+  },
+  {
+    "image_file": "sample_005_id_0.png",
+    "image_id": "0-5",
+    "reference": "venography shows a large amount of thrombogenesis in the femoropoplitea vein before thrombolysis.",
+    "hypothesis": "angiogram of the left common carotid artery showing a large aneurysm of the left common carotid artery."
+  },
+  {
+    "image_file": "sample_006_id_0.png",
+    "image_id": "0-6",
+    "reference": "postoperative decreased size of the cyst",
+    "hypothesis": "ct scan of the head showing a large mass in the left cerebellar hemisphere."
+  },
+  {
+    "image_file": "sample_007_id_0.png",
+    "image_id": "0-7",
+    "reference": "fetal aortic arch. the solid arrow represents the ascending aorta while the dotted arrow represents the aortic arch distal to the ductus arteriosus. note the aliasing in the ductal arch reflecting turbulent blood flow as a result of external compression due to mass - effect.",
+    "hypothesis": "color doppler ultrasound image of the left kidney showing a large heterogeneous mass in the left lobe of the liver."
+  },
+  {
+    "image_file": "sample_008_id_0.png",
+    "image_id": "0-8",
+    "reference": "abdominal computed tomography scan. arrow points to the likely cholecystocutaneous fistulous track.",
+    "hypothesis": "ct scan of the abdomen showing a large mass in the left upper quadrant of the abdomen."
+  },
+  {
+    "image_file": "sample_009_id_0.png",
+    "image_id": "0-9",
+    "reference": "distension digestive avec niveaux hydro - aeriques coliques et vacuite pelvienne",
+    "hypothesis": "abdominal x - ray showing dilated stomach with dilated stomach and stomach with air - fluid levels."
+  }
+]

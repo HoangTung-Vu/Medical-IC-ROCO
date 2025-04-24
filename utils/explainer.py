@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-
+from scipy.ndimage import gaussian_filter
 import numpy as np
 import torch
 import torchvision.transforms.functional as TF
@@ -62,8 +61,7 @@ def explain_inference_image(img_tensor: torch.Tensor, model, device='cuda'):
     ]
 
     heatmaps = [
-        reconstruct_heatmap(
-            conv_layers,
+        reconstruct_heatmap_grid(
             attn.view(1, 1, grid_size, grid_size)
         ).squeeze(0).squeeze(0).detach().cpu().numpy()
         for attn in attention_maps
@@ -75,28 +73,31 @@ def explain_inference_image(img_tensor: torch.Tensor, model, device='cuda'):
 
 def overlay_heatmap(image_tensor: torch.Tensor, heatmap: np.ndarray, alpha: float = 0.5) -> plt.Figure:
     """
-    Overlay a heatmap onto the image and return a matplotlib figure.
-
-    Args:
-        image_tensor (torch.Tensor): [1, 3, H, W] unnormalized image tensor
-        heatmap (np.ndarray): 2D heatmap array (H', W')
-        alpha (float): blending factor
-        cmap (str): colormap name for matplotlib
-
-    Returns:
-        plt.Figure: matplotlib figure object
+    Overlay a blurred grayscale heatmap onto the image and return a matplotlib figure.
     """
-    unnorm = image_tensor.cpu() * torch.tensor([0.229,0.224,0.225]).view(3,1,1) + torch.tensor([0.485,0.456,0.406]).view(3,1,1)
-    img_arr = (unnorm.clamp(0,1).permute(1,2,0).numpy() * 255).astype(np.uint8)
+    # Unnormalize image tensor
+    unnorm = image_tensor.cpu() * torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1) + \
+             torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+    img_arr = (unnorm.clamp(0, 1).permute(1, 2, 0).numpy() * 255).astype(np.uint8)
     H, W = img_arr.shape[:2]
+
+    # Resize heatmap if needed and apply Gaussian blur
+    if heatmap.shape != (H, W):
+        from skimage.transform import resize
+        heatmap = resize(heatmap, (H, W), mode='reflect', anti_aliasing=True)
+    blurred_heatmap = gaussian_filter(heatmap, sigma=10)
+
+    # Normalize heatmap to [0, 1]
+    blurred_heatmap = (blurred_heatmap - blurred_heatmap.min()) / (blurred_heatmap.max() - blurred_heatmap.min() + 1e-8)
 
     fig, ax = plt.subplots()
     ax.imshow(img_arr)
-    ax.imshow(heatmap, alpha=alpha, extent=(0, W, H, 0))
-    ax.axis('off')  # remove axes
+    ax.imshow(blurred_heatmap, cmap='Greys', alpha=alpha, extent=(0, W, H, 0))
+    ax.axis('off')
     fig.tight_layout(pad=0)
 
     return fig
+
 
 
 def save_image(fig: plt.Figure, save_path: str) -> None:

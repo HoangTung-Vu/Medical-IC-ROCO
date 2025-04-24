@@ -5,6 +5,7 @@ from typing import List, Dict, Optional, Callable
 from transformers import AutoTokenizer
 from datasets import Dataset, concatenate_datasets
 from torchvision import transforms
+
 class Tokenizer:
     def __init__(self, max_length: int = 512):
         self.max_length = max_length
@@ -46,6 +47,44 @@ class Tokenizer:
         return self.tokenizer.get_vocab()
 
 
+class GPTTokenizer:
+    def __init__(self, max_length: int = 512):
+        self.max_length = max_length
+        self.tokenizer = AutoTokenizer.from_pretrained("gpt2")
+
+    def __len__(self):
+        return len(self.tokenizer)
+
+    def encode(self, text: str, add_special_tokens: bool = True) -> List[int]:
+        return self.tokenizer.encode(
+            text,
+            add_special_tokens=add_special_tokens,
+            max_length=self.max_length,
+            truncation=True
+        )
+
+    def batch_encode(
+        self, texts: List[str], add_special_tokens: bool = True, 
+        padding: bool = True, return_tensors: str = "pt"
+    ) -> Dict:
+        return self.tokenizer(
+            texts,
+            add_special_tokens=add_special_tokens,
+            max_length=self.max_length,
+            padding=padding,
+            truncation=True,
+            return_tensors=return_tensors
+        )
+
+    def decode(self, ids: List[int], skip_special_tokens: bool = True) -> str:
+        return self.tokenizer.decode(ids, skip_special_tokens=skip_special_tokens)
+
+    def get_pad_token_id(self) -> int:
+        return self.tokenizer.pad_token_type_id
+
+    def get_vocabulary(self) -> Dict[str, int]:
+        return self.tokenizer.get_vocab()
+
 class Collate:
     def __init__(self, tokenizer: Tokenizer, transform : Optional[Callable] = None):
         self.tokenizer = tokenizer
@@ -76,7 +115,6 @@ def get_dataloader(
     num_workers: int = 4, 
     shuffle: bool = True,
     pin_memory: bool = True,
-    tokenizer = Tokenizer(),
     img_cache_size: Optional[int] = 100
 ):
     def get_arrow_files(prefix: str) -> List[str]:
@@ -103,7 +141,7 @@ def get_dataloader(
             transforms.Lambda(lambda x: x.repeat(3, 1, 1) if x.shape[0] == 1 else x)  # chuyển ảnh grayscale -> RGB
         ])
 
-    tokenizer = tokenizer
+    tokenizer = Tokenizer(max_length=512)
     collate_fn = Collate(tokenizer, transform)
 
     # Load datasets
@@ -129,7 +167,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     trainloader, validloader, testloader = get_dataloader(
-        root_dir='../data/03471f547bb646a1f447add638d46bb3507523e8',
+        root_dir='/home/hoangtungvum/CODE/MIC/data/03471f547bb646a1f447add638d46bb3507523e8',
         batch_size=16
     )["data"]
 

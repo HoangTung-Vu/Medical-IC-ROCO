@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from models.modules import * 
-from transformers import AutoModel, AutoTokenizer, BioGptConfig, BioGptForCausalLM
+from transformers import AutoModel
 from typing import Optional
 
 class Decoder(nn.Module):
@@ -76,31 +76,3 @@ class Decoder(nn.Module):
         logits = torch.matmul(x, self.bert_embed.weight.T) 
         return logits, cross_attn_weights_layers
     
-
-class BioGPTDecoder(nn.Module):
-    def __init__(self):
-        super(BioGPTDecoder, self).__init__()
-        gpt_config = BioGptConfig.from_pretrained("microsoft/biogpt", add_cross_attention=True)
-        self.gpt = BioGptForCausalLM.from_pretrained("microsoft/biogpt", config=gpt_config, attn_implementation="eager")
-
-    def forward(self,
-                target_seq: torch.Tensor,
-                encoder_output: torch.Tensor,
-                target_padding_mask : Optional[torch.Tensor] = None,
-                encoder_padding_mask : Optional[torch.Tensor] = None) -> torch.Tensor:
-        """
-        Forward pass of the decoder.
-        Args:
-            target_seq (torch.Tensor): Target sequence tensor of shape (B, N). 
-            encoder_output (torch.Tensor): Encoder output tensor of shape (B, N, hidden_size).
-            target_padding_mask (Optional[torch.Tensor]): Target padding mask. Shape (B, N).
-            encoder_padding_mask (Optional[torch.Tensor]): Encoder padding mask. Shape (B, N).
-        Returns:
-            torch.Tensor: Output tensor of shape (B, N, vocab_size)."""
-        outputs = self.gpt(
-            input_ids=target_seq,
-            encoder_hidden_states=encoder_output,
-            attention_mask=target_padding_mask,
-            encoder_attention_mask=encoder_padding_mask
-        )
-        return outputs.logits, outputs.cross_attentions
